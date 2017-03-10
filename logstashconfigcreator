@@ -1,0 +1,39 @@
+#!/bin/bash
+
+TSTAMP=$(date +%s)
+CONF="/tmp/logstash-$TSTAMP.conf"
+PATTERNS="/tmp/bro_patterns_$TSTAMP"
+
+for j in *.log; do
+  LOG=$(echo $j | sed 's/.log//g')
+  FILTNAME=$(echo $LOG | tr '[:lower:]' '[:upper:]')
+#  echo -e "BRO$FILTNAME \c" >> $PATTERNS
+  for i in $(grep -E "^#fields" $LOG.log | sed 's/\./_/g' | sed 's/^#fields\t//g'); do echo -e "(?<$i>(.*?))\\\0134\\\0164\c"; done | sed 's/\\\0134\\\0164$//g' > $PATTERNS
+  THISPATTERN=$(cat $PATTERNS)
+  echo "
+input {
+  file {
+    path => [ \"$PWD/$j\" ] # array (required)
+    type => \"bro_$LOG\" # string (optional)
+  }
+}
+" > /etc/logstash/conf.d/$LOG.conf
+
+  echo "
+filter{
+if [type] == \"bro_$LOG\" {
+ grok {
+    break_on_match => false
+    match => { "message" => \"$THISPATTERN\"}
+    add_tag => \"bro$LOG\"
+  }
+ }
+}
+" >> /etc/logstash/conf.d/$LOG.conf
+sed -i 's@\\0134\\0164@\t@g' /etc/logstash/conf.d/$LOG.conf
+
+
+rm $CONF
+rm $PATTERNS
+
+exit 0
