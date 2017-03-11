@@ -23,6 +23,10 @@ input {
 
   echo "
 filter{
+
+if ([message] =~ /192.168.11.222/) {
+        drop{}
+    }
 if [type] == \"bro_$LOG\" {
  grok {
     break_on_match => false
@@ -51,5 +55,7 @@ sed -i 's@\\0134\\0164@\t@g' /etc/logstash/conf.d/$LOG.conf
 done
 rm $CONF
 rm $PATTERNS
-
+service logstash stop
+sleep 10  
+service logstash start
 exit 0
