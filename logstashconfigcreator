@@ -3,8 +3,10 @@
 TSTAMP=$(date +%s)
 CONF="/tmp/logstash-$TSTAMP.conf"
 PATTERNS="/tmp/bro_patterns_$TSTAMP"
-
-for j in *.log; do
+cd /opt/nsm/bro/logs/current
+echo `pwd`
+for j in `ls -I "*17*" *.log`; do
+  echo $j  
   LOG=$(echo $j | sed 's/.log//g')
   FILTNAME=$(echo $LOG | tr '[:lower:]' '[:upper:]')
 #  echo -e "BRO$FILTNAME \c" >> $PATTERNS
@@ -26,13 +28,27 @@ if [type] == \"bro_$LOG\" {
     break_on_match => false
     match => { "message" => \"$THISPATTERN\"}
     add_tag => \"bro$LOG\"
+     }
+if (\"\" in [id_orig_h]) {
+   mutate{
+    add_field => { \"origHost\" => \"%{id_orig_h}\" }
+    add_field => { \"respHost\" => \"%{id_resp_h}\" }
+    }
+ dns{
+   reverse => [ \"origHost\" ]
+   action => [ \"replace\" ]
+    }
+ dns{
+   reverse => [ \"respHost\" ]
+   action => [ \"replace\" ]
+    }
   }
  }
 }
 " >> /etc/logstash/conf.d/$LOG.conf
 sed -i 's@\\0134\\0164@\t@g' /etc/logstash/conf.d/$LOG.conf
 
-
+done
 rm $CONF
 rm $PATTERNS
 
